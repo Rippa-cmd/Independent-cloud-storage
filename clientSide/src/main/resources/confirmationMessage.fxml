@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<AnchorPane prefHeight="150.0" prefWidth="300.0" xmlns="http://javafx.com/javafx/10.0.2-internal" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.antonov.cloudStorage.controllers.MessagesController">
+   <children>
+      <Label fx:id="messageText" alignment="CENTER" layoutX="22.0" layoutY="14.0" prefHeight="82.0" prefWidth="256.0" textAlignment="CENTER" wrapText="true">
+         <font>
+            <Font size="17.0" />
+         </font>
+      </Label>
+      <Button layoutX="56.0" layoutY="111.0" mnemonicParsing="false" onAction="#delete" text="Yes" />
+      <Button layoutX="172.0" layoutY="111.0" mnemonicParsing="false" onAction="#close" text="Wait a minute..." />
+   </children>
+</AnchorPane>

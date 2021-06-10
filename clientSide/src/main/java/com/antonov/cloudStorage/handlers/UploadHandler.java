@@ -1,4 +1,4 @@
-package com.antonov.cloudStorage.client.handlers;
+package com.antonov.cloudStorage.handlers;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -17,12 +17,16 @@ public class UploadHandler {
         fileSize = fileChannel.size();
     }
 
+    /**
+     * Начинает отправку файла на сервер
+     */
     public void initUploading(SocketChannel client) throws IOException {
         long curBytes = 0;
         do {
             curBytes += fileChannel.transferTo(curBytes, fileSize, client);
         }
         while (curBytes != fileSize);
+
     }
 
     public long getFileSize() throws IOException {

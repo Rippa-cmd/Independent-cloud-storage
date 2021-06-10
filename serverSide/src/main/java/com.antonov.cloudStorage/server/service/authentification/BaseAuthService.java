@@ -1,4 +1,4 @@
-package com.antonov.cloudStorage.server.service;
+package com.antonov.cloudStorage.server.service.authentification;
 
 import com.antonov.cloudStorage.server.interfaces.AuthService;
 
@@ -22,7 +22,7 @@ public class BaseAuthService implements AuthService {
     @Override
     public boolean addEntry(String[] logPassNick) {
         try {
-            preparedStatement = Singleton.getConnection().prepareStatement("INSERT INTO credentials (login, password, nick) VALUES (?, ?, ?)");
+            preparedStatement = DBConnector.getConnection().prepareStatement("INSERT INTO credentials (login, password, nick) VALUES (?, ?, ?)");
             preparedStatement.setString(1, logPassNick[1]);
             preparedStatement.setString(2, logPassNick[2]);
             preparedStatement.setString(3, logPassNick[3]);
@@ -37,7 +37,7 @@ public class BaseAuthService implements AuthService {
     @Override
     public void start() {
         try {
-            statement = Singleton.getConnection().createStatement();
+            statement = DBConnector.getConnection().createStatement();
         } catch (SQLException | ClassNotFoundException e) {
             //Server.logger.error(e);
         }
@@ -61,7 +61,7 @@ public class BaseAuthService implements AuthService {
         try {
 
             // Сделал через prepared для игнорирования спец символов ('," и тд)
-            preparedStatement = Singleton.getConnection().prepareStatement("select id, nick from credentials where login = ? and password = ?");
+            preparedStatement = DBConnector.getConnection().prepareStatement("select id, nick from credentials where login = ? and password = ?");
             preparedStatement.setString(1, login);
             preparedStatement.setString(2, password);
             set = preparedStatement.executeQuery();
@@ -80,7 +80,7 @@ public class BaseAuthService implements AuthService {
     // Заменяет ник в БД на новый
     public void nickChanger(String oldNick, String newNick) {
         try {
-            preparedStatement = Singleton.getConnection().prepareStatement("update users set nick = ? where nick = ?");
+            preparedStatement = DBConnector.getConnection().prepareStatement("update users set nick = ? where nick = ?");
             preparedStatement.setString(1, newNick);
             preparedStatement.setString(2, oldNick);
             preparedStatement.executeUpdate();

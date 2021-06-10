@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<AnchorPane prefHeight="200.0" prefWidth="300.0" xmlns="http://javafx.com/javafx/10.0.2-internal" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.antonov.cloudStorage.controllers.AuthenticationController">
+   <children>
+      <HBox layoutX="26.0" layoutY="114.0" prefHeight="27.0" prefWidth="250.0">
+         <children>
+            <Label prefHeight="27.0" prefWidth="66.0" text="Password:" />
+            <PasswordField fx:id="passwordField" prefHeight="27.0" prefWidth="200.0" />
+         </children>
+      </HBox>
+      <HBox layoutX="26.0" layoutY="73.0" prefHeight="27.0" prefWidth="250.0">
+         <children>
+            <Label prefHeight="27.0" prefWidth="66.0" text="      Login:" />
+            <TextField fx:id="loginField" prefHeight="27.0" prefWidth="200.0" />
+         </children>
+      </HBox>
+      <Label layoutX="42.0" layoutY="14.0" text="Enter your login and password">
+         <font>
+            <Font size="16.0" />
+         </font>
+      </Label>
+      <Button layoutX="224.0" layoutY="161.0" mnemonicParsing="false" onAction="#tryLogin" text="Log in" />
+   </children>
+</AnchorPane>

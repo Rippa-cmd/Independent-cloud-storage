@@ -1,4 +1,4 @@
-package com.antonov.cloudStorage.server.service;
+package com.antonov.cloudStorage.server.service.handlers;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -9,11 +9,11 @@ import java.nio.file.StandardOpenOption;
 /**
  * Класс загрузки файла
  */
-public class FileWriter {
+public class FileReceiver {
     private FileChannel fileChannel;
     private final long fileSize;
 
-    public FileWriter(Path finalPath, long fileSize) {
+    public FileReceiver(Path finalPath, long fileSize) {
         this.fileSize = fileSize;
         try {
             fileChannel = FileChannel.open(finalPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
@@ -22,11 +22,14 @@ public class FileWriter {
         }
     }
 
-    public boolean continueWrite (SocketChannel client) {
+    /**
+     * Продолжает запись получаемого файла
+     */
+    public boolean continueReading(SocketChannel client) {
         try {
             fileChannel.transferFrom(client, fileChannel.size(), fileSize);
             System.out.println(fileChannel.size());
-            if (fileChannel.size() == fileSize) {
+            if (fileChannel.size() >= fileSize) {
                 fileChannel.close();
                 System.out.println("Stopped");
                 return true;

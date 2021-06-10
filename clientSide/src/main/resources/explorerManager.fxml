@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="600.0" stylesheets="styles.css" xmlns="http://javafx.com/javafx/10.0.2-internal" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.antonov.cloudStorage.controllers.ExplorerController">
+<!--    <MenuBar prefHeight="25.0" prefWidth="200.0">-->
+<!--        <Menu mnemonicParsing="false" text="File">-->
+<!--            <MenuItem mnemonicParsing="false" onAction="#menuItemFileExitAction" text="Close" />-->
+<!--        </Menu>-->
+<!--        <Menu mnemonicParsing="false" text="Edit">-->
+<!--            <MenuItem mnemonicParsing="false" text="Delete" />-->
+<!--        </Menu>-->
+<!--        <Menu mnemonicParsing="false" text="Help">-->
+<!--            <MenuItem mnemonicParsing="false" text="About" />-->
+<!--        </Menu>-->
+<!--    </MenuBar>-->
+   <HBox spacing="2">
+      <children>
+         <Button maxWidth="Infinity" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" onAction="#goHome" prefHeight="25.0" prefWidth="29.0" text="~" />
+         <Button maxWidth="Infinity" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" onAction="#goUp" prefHeight="25.0" prefWidth="29.0" text=".." />
+         <TextField fx:id="pathFiled" editable="false" prefHeight="25.0" prefWidth="449.0" HBox.hgrow="ALWAYS" />
+         <Button maxWidth="Infinity" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" onAction="#reload" prefHeight="25.0" prefWidth="29.0" text="↻" />
+         <TextField fx:id="nicknameField" editable="false" focusTraversable="false" minWidth="-Infinity" prefHeight="25.0" prefWidth="100.0" />
+      </children>
+   </HBox>
+    <TableView fx:id="filesTable" onMouseClicked="#filesListClicked" VBox.vgrow="ALWAYS" />
+    <HBox spacing="5">
+        <Button maxWidth="Infinity" mnemonicParsing="false" onAction="#uploadToServer" text="Upload to server" HBox.hgrow="ALWAYS" />
+        <Button maxWidth="Infinity" mnemonicParsing="false" onAction="#downloadFromServer" text="Download from server" HBox.hgrow="ALWAYS" />
+        <Button maxWidth="Infinity" mnemonicParsing="false" onAction="#rename" text="Rename" HBox.hgrow="ALWAYS" />
+        <Button maxWidth="Infinity" mnemonicParsing="false" onAction="#createDir" text="Create directory" HBox.hgrow="ALWAYS" />
+<!--        <Button maxWidth="Infinity" mnemonicParsing="false" text="Moving" HBox.hgrow="ALWAYS" />-->
+        <Button maxWidth="Infinity" mnemonicParsing="false" onAction="#remove" text="Remove" HBox.hgrow="ALWAYS" />
+    </HBox>
+</VBox>
