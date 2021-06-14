@@ -35,7 +35,7 @@ public class MessagesController {
     public void delete(ActionEvent actionEvent) {
         MainClient.sendMessage("rm " + filePath);
         ((Stage) ((Node) actionEvent.getSource()).getScene().getWindow()).close();
-        MainClient.sendMessage("ls " + filePath.getParent());
+        //MainClient.sendMessage("ls " + filePath.getParent());
     }
 
     /**

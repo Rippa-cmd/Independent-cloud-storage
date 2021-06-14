@@ -1,18 +1,22 @@
 package com.antonov.cloudStorage.controllers;
 
 import com.antonov.cloudStorage.MainClient;
+import com.antonov.cloudStorage.handlers.DownloadHandler;
+import com.antonov.cloudStorage.handlers.UploadHandler;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.input.MouseEvent;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
 import java.io.File;
@@ -26,7 +30,7 @@ import java.util.ResourceBundle;
 /**
  * Контроллер главного окна проваодника, отображающий хранящиеся файлы на сервере и позволяющий с ним взаимодействовать
  */
-public class ExplorerController implements Initializable {
+public class ServerExplorerController implements Initializable {
 
 
     @FXML
@@ -36,9 +40,10 @@ public class ExplorerController implements Initializable {
     TextField pathFiled;
 
     @FXML
-    TextField nicknameField;
+    TextField searchField;
 
     protected Path curPath = Paths.get("");
+    private boolean isFoundedFiles = false;
 
     /**
      * Выход по кнопке
@@ -136,8 +141,18 @@ public class ExplorerController implements Initializable {
             ArrayList<String> file = filesTable.getSelectionModel().getSelectedItem();
             if (file != null) {
                 if ("D".equals(file.get(3))) {
-                    MainClient.sendMessage("ls " + curPath.resolve(file.get(0)));
-                    curPath = curPath.resolve(file.get(0));
+                    Path serverPath;
+                    if (isFoundedFiles) {
+                        serverPath = Paths.get(file.get(5));
+                        isFoundedFiles = false;
+                        curPath = serverPath;
+                    }
+                    else {
+                        serverPath = curPath.resolve(file.get(0));
+                        curPath = curPath.resolve(file.get(0));
+                    }
+                    MainClient.sendMessage("ls " + serverPath);
+
                 }
             }
         }
@@ -149,6 +164,7 @@ public class ExplorerController implements Initializable {
     public void goHome(ActionEvent actionEvent) {
         curPath = Paths.get("");
         MainClient.sendMessage("ls " + curPath);
+        isFoundedFiles = false;
     }
 
     /**
@@ -161,14 +177,15 @@ public class ExplorerController implements Initializable {
         if (curPath == null)
             curPath = Paths.get("");
         MainClient.sendMessage("ls " + curPath);
+        isFoundedFiles = false;
     }
 
     /**
      * Отображение никнейма пользователя
      */
-    public void setNick(String nickname) {
-        nicknameField.setText(nickname);
-    }
+//    public void setNick(String nickname) {
+//        nicknameField.setText(nickname);
+//    }
 
     /**
      * Метод рекурсивного удаления файла\файлов
@@ -178,8 +195,6 @@ public class ExplorerController implements Initializable {
         if (file == null) {
             return;
         }
-        Path fileName = curPath.resolve(file.get(0));
-        System.out.println(fileName);
 
         Stage stage = new Stage();
         FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/confirmationMessage.fxml"));
@@ -189,7 +204,11 @@ public class ExplorerController implements Initializable {
         stage.setResizable(false);
 
         MessagesController controller = fxmlLoader.getController();
-        controller.setFilePath(fileName);
+        if (isFoundedFiles)
+            controller.setFilePath(Paths.get(file.get(5)));
+        else
+            controller.setFilePath(curPath.resolve(file.get(0)));
+
         if ("dir".equals(file.get(3)))
             controller.setMessageText(file.get(4));
         else
@@ -202,6 +221,8 @@ public class ExplorerController implements Initializable {
      * Метод создания папки
      */
     public void createDir(ActionEvent actionEvent) throws IOException {
+        if (isFoundedFiles)
+            return;
         Stage stage = new Stage();
         FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/newDirNameMessage.fxml"));
         Parent root = fxmlLoader.load();
@@ -224,40 +245,83 @@ public class ExplorerController implements Initializable {
      * Метод загрузки файла на сервер
      */
     public void uploadToServer(ActionEvent actionEvent) throws IOException {
-        Stage stage = new Stage();
-        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/uploadMessage.fxml"));
-        Parent root = fxmlLoader.load();
-        stage.setTitle("Downloading directory");
-        stage.setScene(new Scene(root, 300, 150));
-        stage.setResizable(false);
-        UploadMessageController controller = fxmlLoader.getController();
-        controller.setCurPath(curPath);
-        stage.show();
+        if (isFoundedFiles) {
+            return;
+        }
+
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Send File");
+        Stage ownerStage = ((Stage) ((Node) actionEvent.getSource()).getScene().getWindow());
+        File sendingFile = fileChooser.showOpenDialog(ownerStage);
+
+        if (sendingFile != null) {
+                Path filePath = sendingFile.toPath();
+                MainClient.uploadHandler = new UploadHandler(filePath);
+                long size = MainClient.uploadHandler.getFileSize();
+                MainClient.sendMessage("upload " + curPath.resolve(filePath.getFileName()) + " " + size);
+                MainClient.uploadStatus = true;
+        }
+
+//        Stage stage = new Stage();
+//        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/uploadMessage.fxml"));
+//        Parent root = fxmlLoader.load();
+//        stage.setTitle("Downloading directory");
+//        stage.setScene(new Scene(root, 300, 150));
+//        stage.setResizable(false);
+//        UploadMessageController controller = fxmlLoader.getController();
+//        controller.setCurPath(curPath);
+//        stage.show();
     }
 
     /**
      * Метод загрузки выбранного файла с сервера
      */
     public void downloadFromServer(ActionEvent actionEvent) throws IOException {
-        ArrayList<String> file = filesTable.getSelectionModel().getSelectedItem();
-        if (file == null) {
+        ArrayList<String> selectedFile = filesTable.getSelectionModel().getSelectedItem();
+        if (selectedFile == null) {
+            return;
+        } else if ("D".equals(selectedFile.get(3))) {
             return;
         }
 
-        Stage stage = new Stage();
-        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/downloadMessage.fxml"));
-        Parent root = fxmlLoader.load();
-        stage.setTitle("Uploading directory");
-        stage.setScene(new Scene(root, 300, 150));
-        stage.setResizable(false);
+        Path serverPath;
+        if (isFoundedFiles)
+            serverPath = Paths.get(selectedFile.get(5));
+        else
+            serverPath = curPath.resolve(selectedFile.get(0));
 
-        String selectedFileName = file.get(0);
-        DownloadMessageController controller = fxmlLoader.getController();
-        controller.setCurPath(curPath.resolve(selectedFileName));
-//        Stage mainStage = ((Stage) ((Node) actionEvent.getSource()).getScene().getWindow());
-//        stage.initModality(Modality.WINDOW_MODAL);
-//        stage.initOwner(mainStage);
-        stage.show();
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Save File");
+        fileChooser.setInitialFileName(selectedFile.get(0));
+        Stage ownerStage = ((Stage) ((Node) actionEvent.getSource()).getScene().getWindow());
+        File file = fileChooser.showSaveDialog(ownerStage);
+        if (file != null) {
+                MainClient.downloadHandler = new DownloadHandler(file.toPath());
+                MainClient.sendMessage("download " + serverPath);
+                MainClient.downloadStatus = true;
+        }
+
+//        ArrayList<String> selectedFile = filesTable.getSelectionModel().getSelectedItem();
+//        if (selectedFile == null) {
+//            return;
+//        }
+//
+//        Stage stage = new Stage();
+//        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/downloadMessage.fxml"));
+//        Parent root = fxmlLoader.load();
+//        stage.setTitle("Uploading directory");
+//        stage.setScene(new Scene(root, 300, 150));
+//        stage.setResizable(false);
+//        DownloadMessageController controller = fxmlLoader.getController();
+//
+//        if (isFoundedFiles)
+//            controller.setCurPath(Paths.get(selectedFile.get(5)));
+//        else
+//            controller.setCurPath(curPath.resolve(selectedFile.get(0)));
+////        Stage mainStage = ((Stage) ((Node) actionEvent.getSource()).getScene().getWindow());
+////        stage.initModality(Modality.WINDOW_MODAL);
+////        stage.initOwner(mainStage);
+//        stage.show();
     }
 
     /**
@@ -268,7 +332,6 @@ public class ExplorerController implements Initializable {
         if (file == null) {
             return;
         }
-        String fileName = file.get(0);
 
         Stage stage = new Stage();
         FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/renamingMessage.fxml"));
@@ -277,7 +340,35 @@ public class ExplorerController implements Initializable {
         stage.setScene(new Scene(root, 300, 150));
         stage.setResizable(false);
         RenamingMessageController controller = fxmlLoader.getController();
-        controller.setCurPath(curPath.resolve(fileName));
+        if (isFoundedFiles)
+            controller.setCurPath(Paths.get(file.get(5)));
+        else
+            controller.setCurPath(curPath.resolve(file.get(0)));
         stage.show();
     }
+
+    //todo search engine, new stage or something
+    public void search(ActionEvent actionEvent) {
+        String filename = searchField.getText();
+        if (filename.isEmpty())
+            return;
+        searchField.clear();
+        pathFiled.setText("Result of searching for \"" + filename + "\"");
+        MainClient.sendMessage("find " + filename);
+    }
+
+    public void showFoundedFiles(ArrayList<ArrayList<String>> filesList) {
+        filesTable.getItems().clear();
+        filesTable.getItems().addAll(filesList);
+        isFoundedFiles = true;
+    }
+
+    //todo
+//    public void moveFile(ActionEvent actionEvent) {
+//        ArrayList<String> file = filesTable.getSelectionModel().getSelectedItem();
+//        if (file == null) {
+//            return;
+//        }
+//        MainClient.sendMessage("move " + filename);
+//    }
 }

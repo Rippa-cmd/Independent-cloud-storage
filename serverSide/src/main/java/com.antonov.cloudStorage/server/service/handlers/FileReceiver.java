@@ -12,11 +12,17 @@ import java.nio.file.StandardOpenOption;
 public class FileReceiver {
     private FileChannel fileChannel;
     private final long fileSize;
+    private Path filePath;
 
-    public FileReceiver(Path finalPath, long fileSize) {
+    public Path getFilePath() {
+        return filePath;
+    }
+
+    public FileReceiver(Path filePath, long fileSize) {
         this.fileSize = fileSize;
+        this.filePath = filePath;
         try {
-            fileChannel = FileChannel.open(finalPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+            fileChannel = FileChannel.open(filePath, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
         } catch (IOException e) {
             e.printStackTrace();
         }

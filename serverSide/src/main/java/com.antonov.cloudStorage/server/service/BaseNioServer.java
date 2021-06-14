@@ -115,7 +115,7 @@ public class BaseNioServer {
             }
 
             if ("mkdir".equals(commands[0])) {
-                    makeDirectory(commands[1], client);
+                makeDirectory(commands[1], channel);
             } else if ("rename".equals(commands[0])) {
                 renameFile(commands[1], commands[2], channel);
             } else if ("ls".equals(commands[0])) {
@@ -126,6 +126,8 @@ public class BaseNioServer {
             } else if ("rm".equals(commands[0])) {
                 if (commands.length == 2)
                     deleteFileOrDirectory(commands[1], channel);
+            } else if ("find".equals(commands[0])) {
+                findFile(commands[1], channel);
             } else if ("upload".equals(commands[0])) {
                 if (commands.length == 3)
                     uploadingToServer(commands[1], Long.parseLong(commands[2]), selector, client);
@@ -142,13 +144,93 @@ public class BaseNioServer {
         }
     }
 
+    private void findFile(String fileName, SocketChannel channel) throws IOException {
+        Users user = users.get(channel.getRemoteAddress());
+        Path rootPath = user.getRootPath();
+        ArrayList<ArrayList<String>> files = new ArrayList<>();
+        Files.walkFileTree(rootPath, new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+
+                if (file.getFileName().toString().contains(fileName)) {
+                    ArrayList<String> fileInfo = new ArrayList<>();
+                    FileSizeAndNestedFilesCount info = showFileSize(file.toString());
+                    //имя файла
+                    fileInfo.add(fileName);
+                    //размер файла
+                    fileInfo.add(info.size);
+                    //дата создания файла
+                    fileInfo.add(showCreationTime(file.toString()));
+                    //информация о типе файла (файл или папка)
+                    fileInfo.add("F");
+                    //кол-во вложенных файлов
+                    fileInfo.add("0");
+                    fileInfo.add(rootPath.relativize(file).toString());
+                    files.add(fileInfo);
+                }
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                if (dir.getFileName().toString().contains(fileName)) {
+                    ArrayList<String> fileInfo = new ArrayList<>();
+                    FileSizeAndNestedFilesCount info = showFileSize(dir.toString());
+                    //имя файла
+                    fileInfo.add(fileName);
+                    //размер файла
+                    fileInfo.add(info.size);
+                    //дата создания файла
+                    fileInfo.add(showCreationTime(dir.toString()));
+                    //информация о типе файла (файл или папка)
+                    fileInfo.add("D");
+                    //кол-во вложенных файлов
+                    fileInfo.add("" + info.count);
+                    fileInfo.add(rootPath.relativize(dir).toString());
+                    files.add(fileInfo);
+                }
+                return FileVisitResult.CONTINUE;
+            }
+        });
+
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             ObjectOutputStream oos = new ObjectOutputStream(baos)) {
+
+            //перевод списка файлов с информации в байты
+            oos.writeObject(files);
+            oos.flush();
+
+            //отправка списка файлов клиенту
+            channel.write(ByteBuffer.wrap(("srchls " + baos.size() + " ").getBytes(StandardCharsets.UTF_8)));
+            channel.write(ByteBuffer.wrap(baos.toByteArray()));
+        }
+
+    }
+
     /**
      * Переименовывание выбранного файла или папки
      */
     private void renameFile(String path, String newName, SocketChannel channel) throws IOException {
         Users user = users.get(channel.getRemoteAddress());
-        Path serverPath = user.getRootPath().resolve(path);
-        Files.move(serverPath, serverPath.getParent().resolve(newName));
+        Path filePath = user.getRootPath().resolve(path);
+        Path renamedFilePath = filePath.getParent().resolve(newName);
+        if (Files.exists(filePath)) {
+            Files.move(filePath, renamedFilePath);
+        } else return;
+        
+        while (!Files.exists(renamedFilePath)) {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+            }
+        }
+        
+        Path relativeRenamedFileDir = Path.of(path).getParent();
+        if (relativeRenamedFileDir == null) {
+            listFiles("", channel);
+        } else {
+            listFiles(relativeRenamedFileDir.toString(), channel);
+        }
     }
 
     /**
@@ -189,8 +271,7 @@ public class BaseNioServer {
                     if (Files.isDirectory(Path.of(nestedFile))) {
                         list.add("D");
                         list.set(1, "");
-                    }
-                    else
+                    } else
                         list.add("F");
                     //кол-во вложенных файлов
                     list.add("" + info.count);
@@ -262,7 +343,7 @@ public class BaseNioServer {
             }
             int exp = (int) (Math.log(finalSize) / Math.log(unit));
             char pre = ("kMGTPE").charAt(exp - 1);
-            size.append(String.format("%d (%.2f %sB)",finalSize, finalSize / Math.pow(unit, exp), pre));
+            size.append(String.format("%d (%.2f %sB)", finalSize, finalSize / Math.pow(unit, exp), pre));
             return new FileSizeAndNestedFilesCount(size.toString(), count.get());
         } catch (IOException e) {
             e.printStackTrace();
@@ -275,22 +356,35 @@ public class BaseNioServer {
      */
     private void deleteFileOrDirectory(String path, SocketChannel client) {
         try {
-            Path serverPath = users.get(client.getRemoteAddress()).getRootPath().resolve(Path.of(path));
+            Users user = users.get(client.getRemoteAddress());
+            Path rootPath = user.getRootPath();
+            Path serverPath = rootPath.resolve(Path.of(path));
 
-            Files.walkFileTree(serverPath, new SimpleFileVisitor<>() {
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    Files.delete(file);
-                    return FileVisitResult.CONTINUE;
-                }
+            if (Files.exists(serverPath)) {
+                Files.walkFileTree(serverPath, new SimpleFileVisitor<>() {
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                        Files.delete(file);
+                        return FileVisitResult.CONTINUE;
+                    }
 
-                @Override
-                public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-                    Files.delete(dir);
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-        } catch (IOException e) {
+                    @Override
+                    public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                        Files.delete(dir);
+                        return FileVisitResult.CONTINUE;
+                    }
+                });
+            }
+            while (Files.exists(serverPath)) {
+                Thread.sleep(100);
+            }
+            Path deletedFileDir = Path.of(path).getParent();
+            if (deletedFileDir == null) {
+                listFiles("", client);
+            } else {
+                listFiles(deletedFileDir.toString(), client);
+            }
+        } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         }
 
@@ -300,31 +394,44 @@ public class BaseNioServer {
      * Проверка ожидания получения файла от клиента
      */
     private boolean checkDownloading(Selector selector, SocketChannel channel, SocketAddress client) throws IOException {
-        if (users.containsKey(client))
-            if (users.get(client).getDownloadingStatus()) {
-                if (users.get(client).write(channel))
+        if (users.containsKey(client)) {
+            Users user = users.get(client);
+            if (user.getDownloadingStatus()) {
+                if (user.write(channel)) {
                     sendMessage("The download was successful", selector, client);
+                    Path relativeFilePath = user.getRootPath().relativize(user.getReceivedFilePath());
+                    Path relativeDirPath = relativeFilePath.getParent();
+                    if (relativeDirPath == null) {
+                        listFiles("", channel);
+                    } else {
+                        listFiles(relativeDirPath.toString(), channel);
+                    }
+                    user.closeFileReceiver();
+                }
                 return true;
             }
+        }
         return false;
     }
 
     /**
      * Создание директорий
      */
-    private void makeDirectory(String path, SocketAddress client) throws IOException {
-        Path serverPath = users.get(client).getRootPath();
-        Files.createDirectories(serverPath.resolve(path));
+    private void makeDirectory(String path, SocketChannel client) throws IOException {
+        Path rootPath = users.get(client.getRemoteAddress()).getRootPath();
+        Path serverPath = rootPath.resolve(path);
+        Files.createDirectories(serverPath);
+        while (!Files.exists(serverPath)) {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+            }
+        }
+        listFiles(Path.of(path).getParent().toString(), client);
     }
 
     /**
      * Загрузка файла на сервер
-     *
-     * @param pathToFile
-     * @param fileSize
-     * @param selector
-     * @param client
-     * @throws IOException
      */
     private void uploadingToServer(String pathToFile, Long fileSize, Selector selector, SocketAddress client) throws IOException {
         Users user = users.get(client);
@@ -368,7 +475,7 @@ public class BaseNioServer {
                 return true;
             }
         }
-        sendMessage("Wrong credentials\n\r", selector, client);
+        //sendMessage("Wrong credentials\n\r", selector, client);
         return false;
     }
 

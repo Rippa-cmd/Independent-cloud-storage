@@ -62,10 +62,17 @@ public class Users {
     public boolean write(SocketChannel client) {
         if (fileReceiver.continueReading(client)) {
             downloadingStatus = false;
-            fileReceiver = null;
             return true;
         }
         return false;
+    }
+
+    public Path getReceivedFilePath () {
+        return fileReceiver.getFilePath();
+    }
+
+    public void closeFileReceiver() {
+        fileReceiver = null;
     }
 
     public Users(String nickname, Path rootPath) {

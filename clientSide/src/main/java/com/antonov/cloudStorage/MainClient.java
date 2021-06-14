@@ -1,6 +1,6 @@
 package com.antonov.cloudStorage;
 
-import com.antonov.cloudStorage.controllers.ExplorerController;
+import com.antonov.cloudStorage.controllers.ServerExplorerController;
 import com.antonov.cloudStorage.handlers.DownloadHandler;
 import com.antonov.cloudStorage.handlers.UploadHandler;
 import javafx.application.Application;
@@ -24,7 +24,7 @@ public class MainClient extends Application {
 
     private static SocketChannel myClient;
     private final ByteBuffer myBuffer = ByteBuffer.allocate(5120);
-    private ExplorerController controller;
+    private ServerExplorerController controller;
     private int lsBytes = 0;
     public static UploadHandler uploadHandler;
     public static DownloadHandler downloadHandler;
@@ -67,6 +67,7 @@ public class MainClient extends Application {
                         String cmd = sb.toString();
                         if (!isAuthorized) {
                             authorization(primaryStage, cmd);
+                            myBuffer.clear();
                             continue;
                         }
 
@@ -84,7 +85,13 @@ public class MainClient extends Application {
                             String[] count = cmd.split(" ");
                             lsBytes = Integer.parseInt(count[1]);
                             if (lsBytes != 0) {
-                                getFilesList();
+                                getFilesList(false);
+                            }
+                        } else if (cmd.startsWith("srchls")) {
+                            String[] count = cmd.split(" ");
+                            lsBytes = Integer.parseInt(count[1]);
+                            if (lsBytes != 0) {
+                                getFilesList(true);
                             }
                         }
 
@@ -119,7 +126,7 @@ public class MainClient extends Application {
             String[] nickname = cmd.split(" ");
             Platform.runLater(() -> {
                 showExplorer(primaryStage);
-                controller.setNick(nickname[1]);
+                //controller.setNick(nickname[1]); todo
                 sendMessage("ls ");
             });
             isAuthorized = true;
@@ -135,6 +142,7 @@ public class MainClient extends Application {
             String[] size = cmd.split(" ");
             downloadHandler.startDownloading(size[1], myClient);
             System.out.println("Successful");
+
 
         } else {
             downloadHandler.close();
@@ -164,7 +172,7 @@ public class MainClient extends Application {
     /**
      * Получение от сервера списка файлов
      */
-    private void getFilesList() throws IOException, ClassNotFoundException {
+    private void getFilesList(boolean isFoundedFiles) throws IOException, ClassNotFoundException {
         ByteBuffer FilesListBuf = ByteBuffer.allocate(lsBytes);
         while (FilesListBuf.position() != lsBytes) {
             if (!myBuffer.hasRemaining()) {
@@ -180,7 +188,10 @@ public class MainClient extends Application {
         ByteArrayInputStream bais = new ByteArrayInputStream(FilesListBuf.array());
         ObjectInputStream ois = new ObjectInputStream(bais);
         ArrayList<ArrayList<String>> FilesList = (ArrayList<ArrayList<String>>) ois.readObject();
-        Platform.runLater(() -> controller.showFiles(FilesList));
+        if (isFoundedFiles)
+            Platform.runLater(() -> controller.showFoundedFiles(FilesList));
+        else
+            Platform.runLater(() -> controller.showFiles(FilesList));
         lsBytes = 0;
         ois.close();
         bais.close();
@@ -191,7 +202,7 @@ public class MainClient extends Application {
      */
     private void showExplorer(Stage primaryStage) {
         primaryStage.close();
-        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/explorerManager.fxml"));
+        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/serverExplorerManager.fxml"));
         Parent root = null;
         try {
             root = fxmlLoader.load();
